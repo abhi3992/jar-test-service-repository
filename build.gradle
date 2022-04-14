@@ -1,0 +1,113 @@
+plugins {
+	id 'org.springframework.boot' version '2.4.3'
+	id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+	id 'java'
+    id "com.jfrog.artifactory" version "4.17.2"
+    id 'maven-publish'	
+    id 'org.sonarqube' version '3.0'
+    id 'jacoco'
+}
+
+group = 'jar-test-service-repository'
+version = project.findProperty('buildVersion') ?: '2021-07.0.0'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+    maven {
+         url 'https://lldigital.jfrog.io/artifactory/gradle'
+        credentials {
+            // username 'dev-team'
+            // password 'Alerts123'
+            username System.getenv('JFROG_COMMON_CREDS_USR')
+            password System.getenv('JFROG_COMMON_CREDS_PSW')
+        }
+    }
+}
+
+
+artifactory {
+    contextUrl = "https://lldigital.jfrog.io/artifactory"
+    publish {
+        repository {
+            repoKey = 'gradle-local'
+            username = "dhananjay.singh"
+            password = "eyJ2ZXIiOiIyIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYiLCJraWQiOiJxQUhVa1JLaFZodGhkQzFKQmZIQjhMYTBuUFd1T3EtTDNlekFtaXQwc0pBIn0.eyJzdWIiOiJqZmZlQDAwMFwvdXNlcnNcL2RoYW5hbmpheS5zaW5naCIsInNjcCI6ImFwcGxpZWQtcGVybWlzc2lvbnNcL2FkbWluIGFwaToqIiwiYXVkIjpbImpmcnRAKiIsImpmbWRAKiIsImpmZXZ0QCoiXSwiaXNzIjoiamZmZUAwMDAiLCJpYXQiOjE2MTA1MjQxNTMsImp0aSI6IjYwZTkxZGFkLTUwNzEtNDdiNy1iMGZkLTY2ZmM0MDEyMmRiMCJ9.rF40XlG8XXES32FpvKI21e5l-zWu67VORT1a-8wiDBKIhdC-KqL2kvGSooMKqppU-t4o050K_UljT-X_6z5vVWZWbpOiB00xp5X7zI0mWMCwwtuQN75YbJ0Qe_scdizQ3WbgUT70hol5bC8Lb1BAb0-hAOWEBzT9f9GDOmPirwjC3rGEi7Azgj9_r9xXwwhD3ReEfnM3W9EAZgO0HNPFVjzWFUOYBD0HYLoIY7Fifk0ll5SHpzKRr255qoaUcrJFUSlYwkfFr7ZlC3IQ6Uk2TEO0b0DRTIIcraJlp_HxRQ3B_ot-WJGkrgvuuOvtvEwytF1fUsftGpBwyHon3KN3yw"
+        }       
+        defaults {
+            publications ('mavenJava')
+        }
+    }
+}
+
+bootJar {
+    enabled=false
+}
+
+jar {
+    enabled=true
+}
+
+
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	annotationProcessor 'org.projectlombok:lombok'
+	compileOnly 'org.projectlombok:lombok'
+	compile 'org.apache.commons:commons-lang3'
+	compile group: 'org.codehaus.jettison', name: 'jettison', version: '1.4.0'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	implementation group: 'org.aspectj', name: 'aspectjweaver', version: '1.9.6'
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Podium Jar For Error Handling',
+            'Implementation-Version': version,
+            'Main-Class': 'podium.lib.util.errorhandling.*'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+publishing {
+  publications {
+	  mavenJava(MavenPublication) {
+		   artifact jar
+	  }
+  }
+}
+
+test {
+	useJUnitPlatform()
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        csv.enabled false
+        html.destination file("${buildDir}/jacocoHtml")
+    }
+}
+
+task version(type: VersionTask)
+class VersionTask extends DefaultTask {
+    @TaskAction
+    def version() {
+        println project.version
+    }
+}
+
+task projectName(type: ProjectNameTask)
+class ProjectNameTask extends DefaultTask {
+    @TaskAction
+    def projectName() {
+        println project.name
+    }
+}
+
+test.finalizedBy jacocoTestReport 
+tasks["sonarqube"].dependsOn test
